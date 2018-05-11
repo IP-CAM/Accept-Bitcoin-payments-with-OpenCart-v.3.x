@@ -1,0 +1,84 @@
+<div id="bitcoin" class="row">
+{% if error_message == false %}
+	<div class="col-sm-4">
+            <img src="https://apirone.com/api/v1/qr?message={{ message }}&format=svg" width="246" height="246" alt="QR code">
+    </div>
+    <div class="col-sm-8 my-auto billing-block" style="padding-left: calc(15px + 1.3em);">
+            <p style="padding-top: 1.3em;"><span class="text-muted">Amount to pay:</span><strong class="text-info"> {{ response_btc }} BTC</strong></p>
+            <p>
+                <span class="text-muted">Pay to Bitcoin address:</span><br>
+                <a href="bitcoin:{{ input_address }}?amount={{ response_btc }}">{{ input_address }}</a>
+            </p>
+            <p class="text-muted m-0">
+            <span class="insertion">
+                        </span>
+            Arrived amount: <strong class="arrived">0</strong> <strong>BTC</strong><br>
+            Remains to pay<span class="with-uncomfirmed"></span>: <strong class="remains">{{ response_btc }}</strong> <strong>BTC</strong><br>
+            Status: <strong class="status">Waiting payment...</strong>
+            </p>
+            <p class="text-muted m-0">If you are unable to complete your payment, you can try again later to place a new order with saved cart.<br>
+You can pay partially, but please do not close this window before next payment to prevent lose of bitcoin address and invoice number.</p>
+    </div>                  
+<script type="text/javascript">
+if(window.jQuery) {
+	if(interval){
+		clearInterval(interval);
+	}
+	function apirone_query(){
+	var order = {{ order }};
+    if (order != undefined) {
+    abf_get_query='/index.php?route=extension/payment/apirone/check_payment&order={{ order }}';
+
+	jQuery.ajax({
+    url: abf_get_query,
+    dataType : "text",
+    success: function (data, textStatus) {
+        
+        data = JSON.parse(data);
+        console.log(data);
+        if (data.Status == 'complete') {
+            complete = 1; 
+            $(".with-uncomfirmed, .uncomfirmed").empty();
+            statusText = "Payment complete";
+        }
+        if (data.Status == 'innetwork') {
+            innetwork = 1;
+            complete = 0;
+            $(".with-uncomfirmed").text('(with uncomfirmed)');
+            statusText = "Transaction in network (income amount: "+ data.innetwork_amount +" BTC)";
+        }
+        if (data.Status == 'waiting') {
+            complete = 0;
+            $(".with-uncomfirmed, .uncomfirmed").empty();
+            statusText = "Waiting payment...";
+        }
+        if (!$("div").is(".last_transaction") && data.last_transaction && data.Status != 'innetwork'){
+            $(".insertion").empty();
+            $(".insertion").prepend('<small>Last transaction: <strong class="last_transaction">'+ data.last_transaction +'</strong></small><br>');
+        }
+        if ($("div").is(".last_transaction")){ $( ".last_transaction" ).text(data.last_transaction); }
+        $( ".last_transaction" ).text(data.last_transaction);
+        $( ".arrived" ).text(data.arrived_amount);
+
+        remains = parseFloat(data.remains_to_pay);
+        console.log(remains);
+        remains = remains.toFixed(8);
+        if( remains < 0 ) remains = 0;
+        $( ".remains" ).text(remains);
+        $( ".status" ).text(statusText);
+        complete_block = '<div class="col-sm-12 complete-block"><div class="alert alert-success" role="alert"><i class="fa fa-check-circle-o" aria-hidden="true"></i> Payment done. Order finished.</div></div>';
+ 
+        if (!$("div").is(".complete-block") && complete){ $( ".billing-block" ).after(complete_block); } 
+    } ,
+    error: function(xhr, ajaxOptions, thrownError){
+    }
+    });
+	}
+    }
+	var interval = setInterval(apirone_query, 5000);
+}
+</script>
+{% else %}
+    <div class="col-sm-12"><div class="alert alert-danger" role="alert">{{ error_message }}</div></div>
+{% endif %}
+</div>

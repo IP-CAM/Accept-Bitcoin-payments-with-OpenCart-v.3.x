@@ -1,0 +1,79 @@
+<?php
+class ModelExtensionPaymentApirone extends Model {
+	public function getMethod($address, $total) {
+		$this->load->language('extension/payment/apirone');
+
+		$query = $this->db->query("SELECT * FROM " . DB_PREFIX . "zone_to_geo_zone WHERE geo_zone_id = '" . (int)$this->config->get('apirone_geo_zone_id') . "' AND country_id = '" . (int)$address['country_id'] . "' AND (zone_id = '" . (int)$address['zone_id'] . "' OR zone_id = '0')");
+
+		if ($this->config->get('apirone_total') > 0 && $this->config->get('apirone_total') > $total) {
+			$status = false;
+		} elseif (!$this->config->get('apirone_geo_zone_id')) {
+			$status = true;
+		} elseif ($query->num_rows) {
+			$status = true;
+		} else {
+			$status = false;
+		}
+
+		$method_data = array();
+
+		if ($status) {
+			$method_data = array(
+				'code'       => 'apirone',
+				'title'      => $this->language->get('text_title'),
+				'terms'      => '',
+				'sort_order' => $this->config->get('apirone_sort_order')
+			);
+		}
+
+		return $method_data;
+	}
+
+	public function getSales($order_id, $address = NULL) {
+
+			if (is_null($address)) {
+				$qry = $this->db->query("SELECT * FROM `" . DB_PREFIX . "apirone_sale` WHERE `order_id` = '" . (int)$order_id . "'"); 
+			} else {
+				$qry = $this->db->query("SELECT * FROM `" . DB_PREFIX . "apirone_sale` WHERE `order_id` = '" . (int)$order_id . "' AND `address` = '" . (string)$address . "'");
+			}
+
+			if ($qry->num_rows) {
+				$order = $qry->row;
+				$order['transactions'] = $this->getTransactions($order_id);
+				return $order;
+			} else {
+				return false;
+			}
+	}
+
+	private function getTransactions($order_id) {
+		$qry = $this->db->query("SELECT * FROM `" . DB_PREFIX . "apirone_transactions` WHERE `order_id` = '" . (int)$order_id . "'");
+
+		if ($qry->num_rows) {
+			return $qry->rows;
+		} else {
+			return false;
+		}
+	}
+
+	public function updateTransaction($where_paid, $confirmations, $thash = NULL, $where_order_id = NULL, $where_thash = 'empty') {
+		if (is_null($thash) || is_null($where_order_id)) {
+
+		$this->db->query("UPDATE `" . DB_PREFIX . "apirone_transactions` SET `time` = NOW(), `confirmations` = '" . (int)$confirmations . "' WHERE `paid` = '" . (int)$where_paid . "'AND `thash` = '" . (int)$thash . "'");
+
+		} else{
+
+		$this->db->query("UPDATE `" . DB_PREFIX . "apirone_transactions` SET `thash` = '" . (string)$thash . "', `time` = NOW(), `confirmations` = '" . (int)$confirmations . "' WHERE `order_id` = '" . (int)$where_order_id . "'AND `paid` = '" . (int)$where_paid . "'AND `thash` = '" . (string)$where_thash . "'");
+
+		}
+	}
+
+	public function addSale($order_id, $address) {
+		$this->db->query("INSERT INTO `" . DB_PREFIX . "apirone_sale` SET `order_id` = '" . (int)$order_id . "', `time` = NOW(), `address` = '" . $this->db->escape($address) . "'");
+	}
+
+	public function addTransaction($order_id, $thash, $paid, $confirmations) {
+		$this->db->query("INSERT INTO `" . DB_PREFIX . "apirone_transactions` SET `order_id` = '" . (int)$order_id . "', `time` = NOW(), `thash` = '" . $this->db->escape($thash) . "', `paid` = '" . $this->db->escape($paid) . "', `confirmations` = '" . (int)$confirmations . "'");
+	}
+
+}

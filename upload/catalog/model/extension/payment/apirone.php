@@ -29,7 +29,7 @@ class ModelExtensionPaymentApirone extends Model {
 		return $method_data;
 	}
 
-	public function getSales($order_id, $address = NULL) {
+	public function abf_getSales($order_id, $address = NULL) {
 
 			if (is_null($address)) {
 				$qry = $this->db->query("SELECT * FROM `" . DB_PREFIX . "apirone_sale` WHERE `order_id` = '" . (int)$order_id . "'"); 
@@ -39,14 +39,14 @@ class ModelExtensionPaymentApirone extends Model {
 
 			if ($qry->num_rows) {
 				$order = $qry->row;
-				$order['transactions'] = $this->getTransactions($order_id);
+				$order['transactions'] = $this->abf_getTransactions($order_id);
 				return $order;
 			} else {
 				return false;
 			}
 	}
 
-	private function getTransactions($order_id) {
+	public function abf_getTransactions($order_id) {
 		$qry = $this->db->query("SELECT * FROM `" . DB_PREFIX . "apirone_transactions` WHERE `order_id` = '" . (int)$order_id . "'");
 
 		if ($qry->num_rows) {
@@ -56,24 +56,27 @@ class ModelExtensionPaymentApirone extends Model {
 		}
 	}
 
-	public function updateTransaction($where_paid, $confirmations, $thash = NULL, $where_order_id = NULL, $where_thash = 'empty') {
+	public function abf_updateTransaction($where_input_thash, $where_paid, $confirmations, $thash = NULL, $where_order_id = NULL, $where_thash = 'empty') {
 		if (is_null($thash) || is_null($where_order_id)) {
 
-		$this->db->query("UPDATE `" . DB_PREFIX . "apirone_transactions` SET `time` = NOW(), `confirmations` = '" . (int)$confirmations . "' WHERE `paid` = '" . (int)$where_paid . "'AND `thash` = '" . (int)$thash . "'");
+		$this->db->query("UPDATE `" . DB_PREFIX . "apirone_transactions` SET `time` = NOW(), `confirmations` = '" . (int)$confirmations . "' WHERE `paid` = '" . (int)$where_paid . "'AND `thash` = '" . (string)$thash  . "'AND `input_thash` = '" .(string)$where_input_thash .  "'");
 
 		} else{
 
-		$this->db->query("UPDATE `" . DB_PREFIX . "apirone_transactions` SET `thash` = '" . (string)$thash . "', `time` = NOW(), `confirmations` = '" . (int)$confirmations . "' WHERE `order_id` = '" . (int)$where_order_id . "'AND `paid` = '" . (int)$where_paid . "'AND `thash` = '" . (string)$where_thash . "'");
+		$this->db->query("UPDATE `" . DB_PREFIX . "apirone_transactions` SET `thash` = '" . (string)$thash . "', `time` = NOW(), `confirmations` = '" . (int)$confirmations . "' WHERE `order_id` = '" . (int)$where_order_id . "'AND `paid` = '" . (int)$where_paid . "'AND `thash` = '" . (string)$where_thash . "'AND `input_thash` = '" . (string)$where_input_thash .  "'");
 
 		}
 	}
 
-	public function addSale($order_id, $address) {
+	public function abf_addSale($order_id, $address) {
 		$this->db->query("INSERT INTO `" . DB_PREFIX . "apirone_sale` SET `order_id` = '" . (int)$order_id . "', `time` = NOW(), `address` = '" . $this->db->escape($address) . "'");
 	}
 
-	public function addTransaction($order_id, $thash, $paid, $confirmations) {
-		$this->db->query("INSERT INTO `" . DB_PREFIX . "apirone_transactions` SET `order_id` = '" . (int)$order_id . "', `time` = NOW(), `thash` = '" . $this->db->escape($thash) . "', `paid` = '" . $this->db->escape($paid) . "', `confirmations` = '" . (int)$confirmations . "'");
+	public function abf_addTransaction($order_id, $thash, $input_thash, $paid, $confirmations) {
+
+		$this->db->query("DELETE FROM `" . DB_PREFIX . "apirone_transactions` WHERE `input_thash` = '" . $this->db->escape($input_thash) . "'");
+
+		$this->db->query("INSERT INTO `" . DB_PREFIX . "apirone_transactions` SET `order_id` = '" . (int)$order_id . "', `time` = NOW(), `thash` = '" . $this->db->escape($thash)  . "', `input_thash` = '" . $this->db->escape($input_thash)  .  "', `paid` = '" . $this->db->escape($paid) . "', `confirmations` = '" . (int)$confirmations . "'");
 	}
 
 }

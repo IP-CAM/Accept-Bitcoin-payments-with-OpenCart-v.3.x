@@ -16,6 +16,7 @@ $_['entry_pending_status'] = 'Pending Order Status';
 $_['entry_geo_zone']	 = 'Geo Zone';
 $_['entry_status']		 = 'Status';
 $_['entry_sort_order']	 = 'Sort Order';
+$_['entry_merchantname'] = 'Merchant Name';
 $_['entry_test_mode']	 = 'Debug Mode';
 $_['entry_confirmation'] = 'Confirmations count';
 

@@ -30,7 +30,7 @@ class ApironeCurl {
  */
   public function do_request($url, $params=array()) {
  // log the request
- $this->logger->write("Initiated CURL request for: {$url}");
+ //$this->logger->write("Initiated CURL request for: {$url}");
  
  // init curl object
  $ch = curl_init();
@@ -69,10 +69,11 @@ class ControllerExtensionPaymentApirone extends Controller {
         $this->load->language('extension/payment/apirone');
         $this->load->model('extension/payment/apirone');
 
+        $test = $this->config->get('payment_apirone_test_mode');
+
         $order_id = $this->session->data['order_id'];
         $order = $this->model_checkout_order->getOrder($order_id);
             
-        $test = $this->config->get('payment_apirone_test_mode');
         //get test mode status
         if ($test){
             /*$apirone_adr =$this->language->get('test_url');*/
@@ -83,22 +84,25 @@ class ControllerExtensionPaymentApirone extends Controller {
         }
             $response_btc = $this->abf_convert_to_btc($order['currency_code'], $order['total'], $order['currency_value']);
 
+            $data['and_pay'] = $this->language->get('and_pay');
+            $data['btc'] = $response_btc;
+
             if ($this->abf_is_valid_for_use($order['currency_code']) && $response_btc > 0) {
                 /**
                  * Args for Forward query
                  */           
-    
-                $sales = $this->model_extension_payment_apirone->getSales($order_id);
+                
+                $sales = $this->model_extension_payment_apirone->abf_getSales($order_id);
                 $data['error_message'] = false;
                 
                 if ($sales == null) {
 
-                    $secret = md5($this->config->get('payment_apirone_secret'));
-                    $refnum = $this->session->data['order_id'];
+                    $order_id = $this->session->data['order_id'];
+                    $secret = $this->abf_getKey($order_id);
 
                     $args = array(
                         'address' => $this->config->get('payment_apirone_merchant'),
-                        'callback' => urlencode(HTTP_SERVER . 'index.php?route=extension/payment/apirone/callback&secret='. $secret .'&refnum='.$refnum)
+                        'callback' => urlencode(HTTP_SERVER . 'index.php?route=extension/payment/apirone/callback&secret='. $secret .'&order_id='.$order_id)
                     );
                     $apirone_create = $apirone_adr . '?method=create&address=' . $args['address'] . '&callback=' . $args['callback'];
 
@@ -106,34 +110,120 @@ class ControllerExtensionPaymentApirone extends Controller {
                     $response_create = $obj_curl->do_request( $apirone_create );
                     $response_create = json_decode($response_create, true);
                     if ($response_create['input_address'] != null){
-                        $this->model_extension_payment_apirone->addSale($order_id, $response_create['input_address']);
+                        $this->model_extension_payment_apirone->abf_addSale($order_id, $response_create['input_address']);
                     } else{
-                        $data['error_message'] =  "No Input Address from Apirone :(";
+                        $data['error_message'] =  $this->language->get('no_input_address');
                     }
                 } else {
                     $response_create['input_address'] = $sales[0]->address;
-                }
-                if ($response_create['input_address'] != null){
+                }             
 
-                $message = urlencode("bitcoin:" . $response_create['input_address'] . "?amount=" . $response_btc . "&label=Apirone");
-                $data['response_btc'] = $response_btc;
-                $data['message'] = $message;
-                $data['input_address'] = $response_create['input_address'];
-                $data['order'] = $order_id;
-                }               
-
-                if ($test && !is_null($response_create)) {
-                    $this->log->write("Request: {$apirone_create} , Response: {$response_btc}");
-                }
+                    $this->abf_logger("Request: {$apirone_create} , Response: {$response_btc}");
             } else {
-                $data['error_message'] = "Apirone couldn't exchange " . $order['currency_code'] . " to BTC :(";
+                $data['error_message'] = $this->language->get('not_exchange') . " " . $order['currency_code'] . " ". $this->language->get('to') ." BTC :(";
             }
 
-        $data['button_confirm'] = $this->language->get('button_confirm');
+        $data['refresh_url'] = $this->url->link('checkout/checkout');
+        $data['url_redirect'] = $this->url->link('extension/payment/apirone/confirm','order='.$order_id.'&address='. $response_create['input_address']);
+        return $this->load->view('extension/payment/apirone', $data);
+    }
+
+    public function confirm(){
 
         $this->load->model('checkout/order');
+        $this->load->language('extension/payment/apirone');
+        $this->load->model('extension/payment/apirone');
 
-        return $this->load->view('extension/payment/apirone', $data);
+        if($this->config->get('payment_apirone_merchantname') != ''){
+            $data['merchantname'] = $this->config->get('payment_apirone_merchantname');
+        } else {
+            $data['merchantname'] = $this->config->get('config_name');
+        }
+
+        $data['please_send'] = $this->language->get('please_send');
+        $data['to_address'] = $this->language->get('to_address');
+        $data['merchant'] = $this->language->get('merchant');
+        $data['amount_to_pay'] = $this->language->get('amount_to_pay');
+        $data['arrived_amount'] = $this->language->get('arrived_amount');
+        $data['remains_to_pay'] = $this->language->get('remains_to_pay');
+        $data['date'] = $this->language->get('date');
+        $data['transactions'] = $this->language->get('transactions');
+        $data['no_tx_yet'] = $this->language->get('no_tx_yet');
+        $data['status'] = $this->language->get('status');
+        $data['loading_data'] = $this->language->get('loading_data');
+        $data['status'] = $this->language->get('status');
+        $data['if_you_unable_complete'] = $this->language->get('if_you_unable_complete');
+        $data['you_can_pay_partially'] = $this->language->get('you_can_pay_partially');
+        $data['payment_complete'] = $this->language->get('payment_complete');
+        $data['tx_in_network'] = $this->language->get('tx_in_network');
+        $data['waiting_payment'] = $this->language->get('waiting_payment');
+        $data['confirmations_count'] = $this->language->get('confirmations_count');
+        $data['thank_you'] = $this->language->get('thank_you');
+        $data['go_to_cart'] = $this->language->get('go_to_cart');
+
+        $safe_order = intval( $this->request->get['order'] );
+        if (isset($this->request->get['address'])) {
+        $safe_address = $this->request->get['address'];
+            if ( strlen( $safe_address ) > 64 ) {
+               $safe_address = substr( $safe_address, 0, 64 );
+            }
+        }
+        if ( !isset($safe_address) ) {
+            $safe_address = '';
+        }
+
+        $test = $this->config->get('payment_apirone_test_mode');
+
+        //get test mode status
+        if ($test){
+            /*$apirone_adr =$this->language->get('test_url');*/
+            $apirone_adr = $this->language->get('live_url');
+        }
+        else{
+            $apirone_adr = $this->language->get('live_url');
+        }
+
+        $order_id = $safe_order;
+        $input_address = $safe_address;
+        $order = $this->model_checkout_order->getOrder($order_id);
+
+        $response_btc = $this->abf_convert_to_btc($order['currency_code'], $order['total'], $order['currency_value']);
+
+        if ($this->abf_is_valid_for_use($order['currency_code']) && $response_btc > 0) {
+
+            $sales = $this->model_extension_payment_apirone->abf_getSales($order_id);
+            $data['error_message'] = false;
+                
+            if ($sales == null) {
+                $this->response->redirect($this->url->link('checkout/cart'));
+                return;
+            } else {
+                $response_create['input_address'] = $sales['address'];
+            }
+            $message = urlencode("bitcoin:" . $response_create['input_address'] . "?amount=" . $response_btc . "&label=Apirone");
+            $data['response_btc'] = number_format($response_btc, 8, '.', '');
+            $data['message'] = $message;
+            $data['input_address'] = $response_create['input_address'];
+            $data['order'] = $order_id;
+            $data['current_date'] = date('Y-m-d');
+            $data['key'] = $input_address;
+            $data['order'] = $order_id;
+
+            $data['back_to_cart'] = $this->url->link('checkout/cart');
+
+        } else {
+            $this->response->redirect($this->url->link('checkout/cart'));
+            return;
+        }   
+        if($input_address == $response_create['input_address']){
+            $data['script'] = $this->language->get('script');
+            $data['style'] =  $this->language->get('style');
+            $this->response->setOutput($this->load->view('extension/payment/apirone_invoice', $data));
+            return;
+        } else {
+            $this->response->redirect($this->url->link('checkout/cart'));
+            return;
+        }
     }
 
     private function abf_convert_to_btc($currency, $value, $currency_value){
@@ -185,7 +275,7 @@ class ControllerExtensionPaymentApirone extends Controller {
         //checks that order has sale
         private function abf_sale_exists($order_id, $input_address)
         {   $this->load->model('extension/payment/apirone');
-            $sales = $this->model_extension_payment_apirone->getSales($order_id, $input_address);
+            $sales = $this->model_extension_payment_apirone->abf_getSales($order_id, $input_address);
             if ($sales['address'] == $input_address) {return true;} else {return false;};
         }
 
@@ -197,7 +287,7 @@ class ControllerExtensionPaymentApirone extends Controller {
             $order = $this->model_checkout_order->getOrder($order_id);
             $total = $this->abf_convert_to_btc($order['currency_code'], $order['total'], $order['currency_value']);
 
-            $sales = $this->model_extension_payment_apirone->getSales($order_id);
+            $sales = $this->model_extension_payment_apirone->abf_getSales($order_id);
             $transactions = $sales['transactions'];
             $remains = 0;
             $total_paid = 0;
@@ -207,8 +297,8 @@ class ControllerExtensionPaymentApirone extends Controller {
                     if ($transaction['thash'] == "empty") $total_empty+=$transaction['paid'];
                     $total_paid+=$transaction['paid'];
                 }
-            $total_paid/=100000000;
-            $total_empty/=100000000;
+            $total_paid/=1E8;
+            $total_empty/=1E8;
             $remains = $total - $total_paid;
             $remains_wo_empty = $remains + $total_empty;
             if ($remains_wo_empty > 0) {
@@ -218,13 +308,20 @@ class ControllerExtensionPaymentApirone extends Controller {
             };
         }
 
+        private function abf_logger($message)
+        {
+            if ($this->config->get('payment_apirone_test_mode')) {
+                $this->log->write($message);
+            }
+        }
+
         private function abf_remains_to_pay($order_id)
         {   
             $this->load->model('checkout/order');
             $this->load->model('extension/payment/apirone');
             $order = $this->model_checkout_order->getOrder($order_id);
 
-            $sales = $this->model_extension_payment_apirone->getSales($order_id);
+            $sales = $this->model_extension_payment_apirone->abf_getSales($order_id);
             $transactions = $sales['transactions'];
 
             $total_paid = 0;
@@ -233,218 +330,309 @@ class ControllerExtensionPaymentApirone extends Controller {
                 $total_paid+=$transaction['paid'];
             }
             $response_btc = $this->abf_convert_to_btc($order['currency_code'], $order['total'], $order['currency_value']);
-            $remains = $response_btc - $total_paid/100000000;
+            $remains = $response_btc - $total_paid/1E8;
             if($remains < 0) $remains = 0;  
             return $remains;
         }
 
-    /**
-     * Check response
-     */
-    public function callback()
-    {   define("ABF_COUNT_CONFIRMATIONS", $this->config->get('payment_apirone_confirmation')); // number of confirmations
-        define("ABF_MAX_CONFIRMATIONS", 150); // max confirmations count
-
-        $this->load->model('checkout/order');
-        $this->load->model('extension/payment/apirone');
-
-        $test = $this->config->get('payment_apirone_test_mode');
-
-        $abf_api_output = 0; //Nothing to do (empty callback, wrong order Id or Input Address)
-        if ($test) {
-            $this->log->write("Callback: {$_SERVER['REQUEST_URI']}");
-        }
-        if (isset($this->request->get['secret'])) {
-            $safe_key = $this->request->get['secret'];
-        }
-
-        if ( ! $safe_key ) {
-            $safe_key = '';
-        }
-
-        if ( strlen( $safe_key ) > 32 ) {
-            $safe_key = substr( $safe_key, 0, 32 );
-        }
-
-        if (isset($this->request->get['refnum'])) {
-            $safe_order_id = intval( $this->request->get['refnum'] );
-        } else {
-            $safe_order_id = '';
-        }
-        
-
-        if ( $safe_order_id == 'undefined') {
-             $safe_order_id = '';
-        }
-
-        if ( strlen( $safe_order_id ) > 25 ) {
-            $safe_order_id = substr( $safe_order_id, 0, 25 );
-        }
-        if (isset($this->request->get['confirmations'])) {
-            $safe_confirmations = intval( $this->request->get['confirmations'] );
-
-            if ( strlen( $safe_confirmations ) > 5 ) {
-             $safe_confirmations = substr( $safe_confirmations, 0, 5 );
+private function abf_getKey($order_id){
+    $key = $this->config->get('payment_apirone_secret');
+    return md5($key . $order_id);
+}
+private function abf_check_data($apirone_order){
+    $abf_check_code = 100; //No value
+    if (!empty($apirone_order['value'])) {
+        $abf_check_code = 101; //No input address
+        if (!empty($apirone_order['input_address'])) {
+            $abf_check_code = 102; //No order_id
+            if (!empty($apirone_order['orderId'])) {
+                $abf_check_code = 103; //No secret
+                if (!empty($apirone_order['secret'])) {
+                    $abf_check_code = 104; //No confirmations
+                    if ($apirone_order['confirmations']>=0) {
+                            $abf_check_code = 106; //No input transaction hash
+                            if (!empty($apirone_order['input_transaction_hash'])) {
+                                $abf_check_code = 200; //No transaction hash
+                                if (!empty($apirone_order['transaction_hash'])){
+                                    $abf_check_code = 201; //All data is ready
+                                }                           
+                            }                    
+                    }                   
+                }
             }
         }
-
-        if ( !isset($safe_confirmations) ) {
-            $safe_confirmations = 0;
+    }
+    return $abf_check_code;
+}
+private function abf_transaction_exists($thash, $order_id){
+    $this->load->model('extension/payment/apirone');
+    $transactions = $this->model_extension_payment_apirone->abf_getTransactions($order_id);
+    $flag = false;
+    if($transactions != '')
+        foreach ($transactions as $transaction) {
+        if($thash == $transaction['thash']){
+            $flag = true; // same transaction was in DB
+            break;
         }
+    }
+    return $flag;
+}
+private function abf_input_transaction_exists($input_thash, $order_id){
+    $this->load->model('extension/payment/apirone');
+    $transactions = $this->model_extension_payment_apirone->abf_getTransactions($order_id);
+    $flag = false;
+    if($transactions != '')
+        foreach ($transactions as $transaction) {
+        if($input_thash == $transaction['input_thash']){
+            $flag = true; // same transaction was in DB
+            break;
+        }
+    }
+    return $flag;
+}
+private function secret_is_valid($secret, $order_id){
+    $flag = false;
+    if($secret == $this->abf_getKey($order_id)){
+        $flag = true;
+    }
+    return $flag;
+}
+private function confirmations_is_ok($confirmations){
+    define("ABF_COUNT_CONFIRMATIONS", $this->config->get('payment_apirone_confirmation'));
+    $flag = false;
+    if($confirmations >= ABF_COUNT_CONFIRMATIONS) {
+        $flag = true;
+    }
+    return $flag;
+}
 
-        if (isset($this->request->get['value'])) {
-            $safe_value = intval( $this->request->get['value'] );
-            if ( strlen( $safe_value ) > 16 ) {
-              $safe_value = substr( $safe_value, 0, 16 );
+private function abf_validate_data($apirone_order){
+    $abf_check_code = 300; //No sale exists
+    if ($this->abf_sale_exists($apirone_order['orderId'], $apirone_order['input_address'])) {
+        $abf_check_code = 302; //secret is invalid
+            if ($this->secret_is_valid($apirone_order['secret'], $apirone_order['orderId'])) {
+                $abf_check_code = 400; //validate complete
             }
-        }
+    }
+    return $abf_check_code;
+}
 
-        if ( !isset($safe_value) ) {
-               $safe_value = '';
-        }
-
-        if (isset($this->request->get['input_address'])) {
-        $safe_input_address = $this->request->get['input_address'];
-            if ( strlen( $safe_input_address ) > 64 ) {
-               $safe_input_address = substr( $safe_input_address, 0, 64 );
-            }
-        }
-        if ( !isset($safe_input_address) ) {
-            $safe_input_address = '';
-        }
-        if (isset($this->request->get['transaction_hash'])) {
-        $safe_transaction_hash = $this->request->get['transaction_hash'];
-            if ( strlen( $safe_transaction_hash ) > 65 ) {
-                $safe_transaction_hash = substr( $safe_transaction_hash, 0, 65 );
-            }
-        }
-        if ( !isset($safe_transaction_hash) ) {
-            $safe_transaction_hash = '';
-        }
-        $apirone_order = array(
-            'confirmations' => $safe_confirmations,
-            'orderId' => $safe_order_id, // order id
-            'key' => $safe_key,
-            'value' => $safe_value,
-            'transaction_hash' => $safe_transaction_hash,
-            'input_address' => $safe_input_address
+private function abf_empty_transaction_hash($apirone_order){
+    $this->load->model('extension/payment/apirone');
+    if ($this->abf_input_transaction_exists($apirone_order['input_transaction_hash'],$apirone_order['orderId'])) {
+        $this->model_extension_payment_apirone->abf_updateTransaction(
+            $apirone_order['input_transaction_hash'],
+            $apirone_order['value'],
+            $apirone_order['confirmations']
         );
-        if (($safe_confirmations >= 0) AND !empty($safe_value) AND $this->abf_sale_exists($safe_order_id, $safe_input_address)) {
-            $abf_api_output = 1; //transaction exists
-            //get test mode status
-            if ($test){
-                /*$apirone_adr =$this->language->get('test_url');*/
-                $apirone_adr = $this->language->get('live_url');
-            }
-            else{
-                $apirone_adr = $this->language->get('live_url');
-            }
-            if (!empty($apirone_order['value']) && !empty($apirone_order['input_address']) && empty($apirone_order['transaction_hash'])) {
-                $order = $this->model_checkout_order->getOrder($apirone_order['orderId']);
-                if ($apirone_order['key'] == md5($this->config->get('payment_apirone_secret'))) {
-                $sales = $this->model_extension_payment_apirone->getSales($apirone_order['orderId']);
-                $transactions = $sales['transactions'];
-                $flag = 1; //no simular transactions
-                if($transactions != ''){
-                    foreach ($transactions as $transaction) {
-                    if(($transaction['thash'] == 'empty') && ($transaction['paid'] == $apirone_order['value'])){
-                        $flag = 0; //simular transaction detected
-                        break;
-                    }
-                    }  
-                }
-                if($flag){
-                    $empty = "empty";
-                    $this->model_extension_payment_apirone->addTransaction($apirone_order['orderId'], $empty, $apirone_order['value'], $apirone_order['confirmations']);
-                    $abf_api_output = 2; //insert new transaction in DB without transaction hash
-                } else {
-                    $this->model_extension_payment_apirone->updateTransaction($apirone_order['value'], $apirone_order['confirmations']);
-                    $abf_api_output = 3; //update existing transaction
-                    }
-                }
-            }
-
-                if (!empty($apirone_order['value']) && !empty($apirone_order['input_address']) && !empty($apirone_order['transaction_hash'])) {
-                $abf_api_output = 4; // callback with transaction_hash
-                $sales = $this->model_extension_payment_apirone->getSales($apirone_order['orderId']);
-                $transactions = $sales['transactions'];
-                $order = $this->model_checkout_order->getOrder($apirone_order['orderId']);
-                if ($sales == null) $abf_api_output = 5; //no such information about input_address
-                $flag = 1; //new transaction
-                $empty = 0; //unconfirmed transaction
-                   if ($apirone_order['key'] == md5($this->config->get('payment_apirone_secret'))) {
-                        $abf_api_output = 6; //WP key is valid but confirmations smaller that value from config or input_address not equivalent from DB
-                        if (($apirone_order['confirmations'] >= ABF_COUNT_CONFIRMATIONS) && ($apirone_order['input_address'] == $sales['address'])) {
-                            $abf_api_output = 7; //valid transaction
-                            $payamount = 0;
-                            if($transactions != '')
-                                foreach ($transactions as $transaction) {
-                                if($transaction['thash'] != 'empty')
-                                        $payamount += $transaction['paid'];                                 
-                                    $abf_api_output = 8; //finding same transaction in DB
-                                    if($apirone_order['transaction_hash'] == $transaction['thash']){
-                                        $abf_api_output = 9; // same transaction was in DB
-                                        $flag = 0; // same transaction was in DB
-                                        break;
-                                    }
-                                    if(($apirone_order['value'] == $transaction['paid']) && ($transaction['thash'] == 'empty')){
-                                        $empty = 1; //empty find
-                                    }
-                                }
-                        }
-                    }
-
-                $response_btc = $this->abf_convert_to_btc($order['currency_code'], $order['total'], $order['currency_value']);                 
-                if($flag && $apirone_order['confirmations'] >= ABF_COUNT_CONFIRMATIONS && $response_btc > 0){
-                    $abf_api_output = 10; //writing into DB, taking notes
-                    $notes        = 'Input Address: ' . $apirone_order['input_address'] . '; Transaction Hash: ' . $apirone_order['transaction_hash'] . '; Payment: ' . number_format($apirone_order['value']/1E8, 8, '.', '') . ' BTC; ';
-                    $notes .= 'Total paid: '.number_format(($payamount + $apirone_order['value'])/1E8, 8, '.', '').' BTC; ';
-                    if (($payamount + $apirone_order['value'])/1E8 < $response_btc)
-                        $notes .= 'User trasfrer not enough money in your shop currency. Waiting for next payment; ';
-                    if (($payamount + $apirone_order['value'])/1E8 > $response_btc)
-                        $notes .= 'User trasfrer more money than You need in your shop currency; ';
-
-
-                    if($empty){
-                        $this->model_extension_payment_apirone->updateTransaction($apirone_order['value'], $apirone_order['confirmations'], $apirone_order['transaction_hash'], $apirone_order['orderId']);
-                    } else {
-                        $this->model_extension_payment_apirone->addTransaction($apirone_order['orderId'], $apirone_order['transaction_hash'], $apirone_order['value'], $apirone_order['confirmations']);
-                    } 
-                    $notes .= 'Order total: '.$response_btc . ' BTC; ';                     
-                    if ($this->abf_check_remains($apirone_order['orderId'])){ //checking that payment is complete, if not enough money on payment it's not completed 
-                        $notes .= 'Successfully paid.';   
-                        $this->model_checkout_order->addOrderHistory($apirone_order['orderId'], $this->config->get('payment_apirone_order_status_id'), $notes, true);
-                    } else {
-                        $this->model_checkout_order->addOrderHistory($apirone_order['orderId'], $this->config->get('payment_apirone_pending_status_id'), $notes, true);
-                    }
-                    
-
-                    $abf_api_output = '*ok*';
-                } else {
-                    $abf_api_output = '11'; //No currency or small confirmations count or same transaction in DB
-                }
-            }
-        }
-
-        if(($apirone_order['confirmations'] >= ABF_MAX_CONFIRMATIONS) && (ABF_MAX_CONFIRMATIONS != 0)) {// if callback's confirmations count more than ABF_MAX_CONFIRMATIONS we answer *ok*
-            $abf_api_output="*ok*";
-            if($test) {
-                $this->log->write("Skipped transaction: {$apirone_order['transaction_hash']} with confirmations: {$apirone_order['confirmations']}");
-            };
+        $abf_check_code = 500; //update existing transaction
+    } else {
+        $this->model_extension_payment_apirone->abf_addTransaction(
+            $apirone_order['orderId'],
+            'empty',
+            $apirone_order['input_transaction_hash'],
+            $apirone_order['value'],
+            $apirone_order['confirmations']
+        );
+        $abf_check_code = 501; //insert new transaction in DB without transaction hash
+    }
+    return $abf_check_code;
+}
+private function abf_calculate_payamount($apirone_order){
+    $this->load->model('extension/payment/apirone');
+    $transactions = $this->model_extension_payment_apirone->abf_getTransactions($apirone_order['orderId']);
+    $payamount = 0;
+    if($transactions != '')
+    foreach ($transactions as $transaction) {
+        if($transaction['thash'] != 'empty')
+            $payamount += $transaction['paid'];
+    }
+    return $payamount;
+}
+private function abf_skip_transaction($apirone_order){
+    define("ABF_COUNT_CONFIRMATIONS", $this->config->get('payment_apirone_confirmation')); // number of confirmations
+    define("ABF_MAX_CONFIRMATIONS", 150); // max confirmations count
+    $abf_check_code = NULL;
+    if(($apirone_order['confirmations'] >= ABF_MAX_CONFIRMATIONS) && (ABF_MAX_CONFIRMATIONS != 0)) {// if callback's confirmations count more than ABF_MAX_CONFIRMATIONS we answer *ok*
+        $abf_check_code="*ok*";
+        $this->abf_logger('[Info] Skipped transaction: ' .  $apirone_order['transaction_hash'] . ' with confirmations: ' . $apirone_order['confirmations']);
         };
-        if($test) {
-        print_r($abf_api_output);//global output
-        } else{
-            if($abf_api_output === '*ok*') echo '*ok*';
+        return $abf_check_code;
+}
+private function abf_take_notes($apirone_order){
+    $this->load->model('checkout/order');
+    $order = $this->model_checkout_order->getOrder($apirone_order['orderId']);
+    $response_btc = $this->abf_convert_to_btc($order['currency_code'], $order['total'], $order['currency_value']);
+    $payamount = $this->abf_calculate_payamount($apirone_order);
+    $notes  = 'Input Address: ' . $apirone_order['input_address'] . '; Transaction Hash: ' . $apirone_order['transaction_hash'] . '; Payment: ' . number_format($apirone_order['value']/1E8, 8, '.', '') . ' BTC; ';
+    $notes .= 'Total paid: '.number_format(($payamount)/1E8, 8, '.', '').' BTC; ';
+    if (($payamount)/1E8 < $response_btc)
+        $notes .= 'User trasfrer not enough money in your shop currency. Waiting for next payment; ';
+    if (($payamount)/1E8 > $response_btc)
+        $notes .= 'User trasfrer more money than You need in your shop currency; ';
+    $notes .= 'Order total: '.$response_btc . ' BTC; ';
+    if ($this->abf_check_remains($apirone_order['orderId'])){ //checking that payment is complete, if not enough money on payment it's not completed 
+        $notes .= 'Successfully paid.';
+    }
+    return $notes;
+}
+private function abf_filled_transaction_hash($apirone_order){
+    $this->load->model('extension/payment/apirone');
+    $this->load->model('checkout/order');
+    $order = $this->model_checkout_order->getOrder($apirone_order['orderId']);
+        if($this->abf_transaction_exists($apirone_order['transaction_hash'],$apirone_order['orderId'])){
+            $abf_check_code = 600;//update transaction
+            $this->model_extension_payment_apirone->abf_updateTransaction(
+                $apirone_order['input_transaction_hash'],
+                $apirone_order['value'],
+                $apirone_order['confirmations'],
+                $apirone_order['transaction_hash'],
+                $apirone_order['orderId']
+            ); 
+        } else {
+            $abf_check_code = 601; //small confirmations count for update tx
+            if ($this->confirmations_is_ok($apirone_order['confirmations'])) {
+            $this->model_extension_payment_apirone->abf_addTransaction(
+                $apirone_order['orderId'],
+                $apirone_order['transaction_hash'],
+                $apirone_order['input_transaction_hash'],
+                $apirone_order['value'],
+                $apirone_order['confirmations']
+            );
+            $notes = $this->abf_take_notes($apirone_order);
+            $abf_check_code = '*ok*';//insert new TX with transaction_hash
+            if ($this->abf_check_remains($apirone_order['orderId'])){ //checking that payment is complete, if not enough money on payment is not completed
+                $complete_order_status = $this->config->get('payment_apirone_order_status_id');
+                $this->model_checkout_order->addOrderHistory($apirone_order['orderId'], $complete_order_status, $notes, true);
+            } else{
+                $partiallypaid_order_status = $this->config->get('payment_apirone_pending_status_id');
+                $this->model_checkout_order->addOrderHistory($apirone_order['orderId'], $partiallypaid_order_status, $notes, true);
+            }
         }
-        exit;
+    }
+    return $abf_check_code;
+}
+
+    public function callback(){
+
+    $this->abf_logger('[Info] Callback' . $_SERVER['REQUEST_URI']);
+    if (isset($this->request->get['secret'])) {
+        $safe_secret = $this->request->get['secret'];
+    } else {
+        $safe_secret = '';
+    }
+    if (isset($this->request->get['order_id'])) {
+        $safe_order_id = intval( $this->request->get['order_id'] );
+    } else {
+        $safe_order_id = '';
+    }
+    if (isset($this->request->get['confirmations'])) {
+        $safe_confirmations = intval( $this->request->get['confirmations'] );
+    } else {
+        $safe_confirmations = '';
+    }
+    if (isset($this->request->get['value'])) {
+        $safe_value = intval( $this->request->get['value'] );
+    } else {
+        $safe_value = '';
+    }
+    if (isset($this->request->get['input_address'])) {
+        $safe_input_address = $this->request->get['input_address'];
+    } else {
+        $safe_input_address = '';
+    }
+    if (isset($this->request->get['transaction_hash'])) {
+        $safe_transaction_hash = $this->request->get['transaction_hash'];
+    } else {
+        $safe_transaction_hash = '';
+    }
+    if (isset($this->request->get['input_transaction_hash'])) {
+        $safe_input_transaction_hash = $this->request->get['input_transaction_hash'];
+    } else {
+        $safe_input_transaction_hash = '';
     }
 
+    if ( strlen( $safe_secret ) > 32 ) {
+        $safe_secret = substr( $safe_secret, 0, 32 );
+    }
+    if ( $safe_order_id == 'undefined' ) {
+         $safe_order_id = '';
+    }
+    if ( strlen( $safe_order_id ) > 25 ) {
+        $safe_order_id = substr( $safe_order_id, 0, 25 );
+    }
+    if ( strlen( $safe_confirmations ) > 5 ) {
+        $safe_confirmations = substr( $safe_confirmations, 0, 5 );
+    }
+    if ( ! $safe_confirmations ) {
+        $safe_confirmations = 0;
+    }
+    if ( strlen( $safe_value ) > 16 ) {
+        $safe_value = substr( $safe_value, 0, 16 );
+    }
+    if ( ! $safe_value ) {
+        $safe_value = '';
+    }
+    if ( strlen( $safe_input_address ) > 64 ) {
+        $safe_input_address = substr( $safe_input_address, 0, 64 );
+    }
+    if ( ! $safe_input_address ) {
+        $safe_input_address = '';
+    }
+    if ( strlen( $safe_transaction_hash ) > 65 ) {
+        $safe_transaction_hash = substr( $safe_transaction_hash, 0, 65 );
+    }
+    if ( ! $safe_transaction_hash ) {
+        $safe_transaction_hash = '';
+    }
+    if ( strlen( $safe_input_transaction_hash ) > 65 ) {
+        $safe_input_transaction_hash = substr( $safe_input_transaction_hash, 0, 65 );
+    }
+    if ( ! $safe_input_transaction_hash ) {
+        $safe_input_transaction_hash = '';
+    }
+    $apirone_order = array(
+        'value' => $safe_value,
+        'input_address' => $safe_input_address,
+        'orderId' => $safe_order_id, // order id
+        'secret' => $safe_secret,
+        'confirmations' => $safe_confirmations,
+        'input_transaction_hash' => $safe_input_transaction_hash,
+        'transaction_hash' => $safe_transaction_hash
+    );
+    $check_data_score = $this->abf_check_data($apirone_order);
+    $abf_api_output = $check_data_score;
+    if( $check_data_score >= 200 ){
+        $validate_score = $this->abf_validate_data($apirone_order);
+        $abf_api_output = $validate_score;
+        if ($validate_score == 400) {
+            if($check_data_score == 200){
+                $data_action_code = $this->abf_empty_transaction_hash($apirone_order);
+            }
+            if($check_data_score == 201){
+                $data_action_code = $this->abf_filled_transaction_hash($apirone_order);
+            }
+            $abf_api_output = $data_action_code;
+        }
+    }
+    if($this->config->get('payment_apirone_test_mode')) {
+        print_r($abf_api_output);//global output
+    } else {
+        if($abf_api_output === '*ok*') {
+            echo '*ok*';   
+        } else{
+            echo $this->abf_skip_transaction($apirone_order);
+        }
+    }
+    exit;
+    }
 
 
    public function check_payment(){
         $this->load->model('checkout/order');
         $this->load->model('extension/payment/apirone');
+
+        define("ABF_COUNT_CONFIRMATIONS", $this->config->get('payment_apirone_confirmation')); // number of confirmations
 
         $safe_order = intval( $this->request->get['order'] );
 
@@ -455,11 +643,20 @@ class ControllerExtensionPaymentApirone extends Controller {
         if ( strlen( $safe_order ) > 25 ) {
             $safe_order = substr( $safe_order, 0, 25 );
         }
-        if (!empty($safe_order)) {
+
+        $safe_key = $this->request->get['key'];
+        if ( strlen( $safe_key ) > 64 ) {
+           $safe_key = substr( $safe_key, 0, 64 );
+        }
+        if ( !isset($safe_key) ) {
+            $safe_key = '';
+        }
+
+        if (!empty($safe_order) && !empty($safe_key)) {
             $order = $this->model_checkout_order->getOrder($safe_order);
             /*print_r( $order );*/
             if (!empty($safe_order)) {
-                $sales = $this->model_extension_payment_apirone->getSales($safe_order);
+                $sales = $this->model_extension_payment_apirone->abf_getSales($safe_order);
                 $transactions = $sales['transactions'];
             }
             $empty = 0;
@@ -472,11 +669,12 @@ class ControllerExtensionPaymentApirone extends Controller {
             $confirmed = '';
             $status = 'waiting';
             //print_r($sales);
+            $alltransactions = '';
             if($transactions != '')
             foreach ($transactions as $transaction) {
                 if($transaction['thash'] == 'empty') {
                             $status = 'innetwork';
-                            $innetwotk_pay = $transaction['paid'];
+                            $innetwotk_pay += $transaction['paid'];
                 }
                 if($transaction['thash'] != 'empty') 
                     $payamount += $transaction['paid'];      
@@ -488,7 +686,8 @@ class ControllerExtensionPaymentApirone extends Controller {
                 } else{
                     $paid_value = $transaction['paid'];
                     $confirmed = $transaction['thash'];
-                }              
+                }
+                $alltransactions[] = array('thash' => $transaction['thash'], 'input_thash' => $transaction['input_thash'], 'confirmations' => $transaction['confirmations']);             
             }
             if ($order == '') {
                 echo '';
@@ -500,11 +699,16 @@ class ControllerExtensionPaymentApirone extends Controller {
             }
                 $remains_to_pay = number_format($this->abf_remains_to_pay($safe_order), 8, '.', '');
                 $last_transaction = $confirmed;
-                $payamount = number_format($payamount/100000000, 8, '.', '');
-                $innetwotk_pay = number_format($innetwotk_pay/100000000, 8, '.', '');
+                $payamount = number_format($payamount/1E8, 8, '.', '');
+                $innetwotk_pay = number_format($innetwotk_pay/1E8, 8, '.', '');
+                $response_btc = number_format($response_btc, 8, '.', '');
 
-
-            echo '{"innetwork_amount": "' .$innetwotk_pay. '" , "arrived_amount": "' .$payamount. '" , "remains_to_pay": "' .$remains_to_pay. '" , "last_transaction": "' .$last_transaction. '", "Status": "' .$status. '"}';
+            if($sales['address'] == $safe_key){
+            $ouput = array('total_btc' => $response_btc, 'innetwork_amount' => $innetwotk_pay, 'arrived_amount' => $payamount, 'remains_to_pay' => $remains_to_pay, 'transactions' => $alltransactions, 'status' => $status, 'count_confirmations' => ABF_COUNT_CONFIRMATIONS);
+            echo json_encode($ouput);
+            } else {
+                echo '';
+            }
 
             exit;
         }  

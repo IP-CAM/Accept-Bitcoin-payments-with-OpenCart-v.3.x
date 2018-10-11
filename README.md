@@ -14,7 +14,7 @@ PS: Do not forget to clear cache at dashboard page. See attached pictures.
 
 ## How does it work?
 
-https://image.opencart.com/original/5af5776710e75.jpg
+![Payment process](https://image.opencart.com/original/5af5776710e75.jpg)
 
 The Buyer prepared the order and click to pay via bitcoins.
 The Store sends bitcoin address and site callback URL to Apirone API Server.

@@ -669,8 +669,8 @@ private function abf_filled_transaction_hash($apirone_order){
             $confirmed = '';
             $status = 'waiting';
             //print_r($sales);
-            $alltransactions = '';
-            if($transactions != '')
+            if($transactions != '') {
+                $alltransactions = array();
             foreach ($transactions as $transaction) {
                 if($transaction['thash'] == 'empty') {
                             $status = 'innetwork';
@@ -688,6 +688,9 @@ private function abf_filled_transaction_hash($apirone_order){
                     $confirmed = $transaction['thash'];
                 }
                 $alltransactions[] = array('thash' => $transaction['thash'], 'input_thash' => $transaction['input_thash'], 'confirmations' => $transaction['confirmations']);             
+            }
+            } else {
+                $alltransactions = "";
             }
             if ($order == '') {
                 echo '';

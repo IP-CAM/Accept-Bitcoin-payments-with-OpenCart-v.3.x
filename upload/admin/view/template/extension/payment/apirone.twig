@@ -26,8 +26,8 @@
       <div class="panel-body">
         <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-apirone" class="form-horizontal">
           <input type="text" name="payment_apirone_secret" value="{{ payment_apirone_secret }}" id="input-secret" class="form-control" style="display:none;" />
-          <div class="form-group required">
-            <label class="col-sm-2 control-label" for="input-merchant">{{ entry_merchant }}</label>
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-merchant">{{ entry_merchant }} <img src="../catalog/view/theme/default/image/btca_btc_logo.svg" width="16" alt="" title=""/></label>
             <div class="col-sm-10">
               <input type="text" name="payment_apirone_merchant" value="{{ payment_apirone_merchant }}" placeholder="{{ entry_merchant }}" id="input-merchant" class="form-control" />
               {% if error_merchant %}
@@ -35,7 +35,24 @@
               {% endif %}
             </div>
           </div>
-
+<!--           <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-bch">{{ entry_bch }} <img src="../catalog/view/theme/default/image/btca_bch_logo.svg" width="16" alt="" title=""/></label>
+            <div class="col-sm-10">
+              <input type="text" name="payment_apirone_bch" value="{{ payment_apirone_bch }}" placeholder="{{ entry_bch }}" id="input-bch" class="form-control" />
+            </div>
+          </div> -->
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-ltc">{{ entry_ltc }} <img src="../catalog/view/theme/default/image/btca_ltc_logo.svg" width="16" alt="" title=""/></label>
+            <div class="col-sm-10">
+              <input type="text" name="payment_apirone_ltc" value="{{ payment_apirone_ltc }}" placeholder="{{ entry_ltc }}" id="input-ltc" class="form-control" />
+            </div>
+          </div>
+          <div class="form-group required">
+            <label class="col-sm-2 control-label" for="input-timeout">{{ entry_timeout }}</label>
+            <div class="col-sm-10">
+              <input type="text" name="payment_apirone_timeout" value="{{ payment_apirone_timeout }}" placeholder="{{ entry_timeout }}" id="input-timeout" class="form-control" />
+            </div>
+          </div>
           <div class="form-group">
             <label class="col-sm-2 control-label" for="input-order-status">{{ entry_order_status }}</label>
             <div class="col-sm-10">
@@ -57,6 +74,20 @@
               <select name="payment_apirone_pending_status_id" id="input-pending-status" class="form-control">
                 {% for order_status in order_statuses %}
                 {% if order_status.order_status_id == payment_apirone_pending_status_id %}
+                <option value="{{ order_status.order_status_id }}" selected="selected">{{ order_status.name }}</option>
+                {% else %}
+                <option value="{{ order_status.order_status_id }}">{{ order_status.name }}</option>
+                {% endif %}
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-voided-status">{{ entry_voided_status }}</label>
+            <div class="col-sm-10">
+              <select name="payment_apirone_voided_status_id" id="input-voided-status" class="form-control">
+                {% for order_status in order_statuses %}
+                {% if order_status.order_status_id == payment_apirone_voided_status_id %}
                 <option value="{{ order_status.order_status_id }}" selected="selected">{{ order_status.name }}</option>
                 {% else %}
                 <option value="{{ order_status.order_status_id }}">{{ order_status.name }}</option>

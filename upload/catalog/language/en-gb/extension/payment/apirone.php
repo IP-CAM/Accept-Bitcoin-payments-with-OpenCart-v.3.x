@@ -1,5 +1,5 @@
 <?php
-$_['text_title'] = 'Pay with Bitcoin <img src="catalog/view/theme/default/image/apirone_bitcoin_logo.svg" alt="Apirone Opencart Bitcoin plugin">';
+$_['text_title'] = 'Pay with cryptocurrency';
 $_['live_url'] = 'https://apirone.com/api/v1/receive';
 $_['test_url'] = 'https://apirone.com/api/v1/receive';
 $_['script'] = 'catalog/view/javascript/apirone/apirone.js';
@@ -30,3 +30,13 @@ $_['no_input_address'] = 'No Input Address from Apirone :( Go to previous step a
 $_['not_exchange'] = 'Apirone couldn\'t exchange';
 $_['to'] = 'to';
 $_['and_pay'] = 'and pay';
+$_['pay'] = 'Pay via';
+$_['bitcoin'] = 'Bitcoin';
+$_['litecoin'] = 'Litecoin';
+$_['bitcoin_cash'] = 'Bitcoin Cash';
+$_['payment_details'] = 'Payment Details';
+$_['text_wait'] = 'Waiting...';
+$_['no_currencies'] = 'No cryptocurrencies available for payment';
+$_['order_not_completed'] = "Payment didn't received. Order not completed.";
+$_['minutes'] = 'minutes';
+$_['seconds_remains'] =  'seconds remains to pay';

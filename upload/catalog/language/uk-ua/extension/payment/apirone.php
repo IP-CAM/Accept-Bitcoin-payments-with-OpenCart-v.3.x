@@ -1,5 +1,5 @@
 <?php
-$_['text_title'] = 'Оплата Біткоіном <img src="catalog/view/theme/default/image/apirone_bitcoin_logo.svg" alt="Apirone Opencart Bitcoin plugin">';
+$_['text_title'] = 'Оплата Біткоіном <img src="catalog/view/theme/default/image/apirone.png" alt="">';
 $_['live_url'] = 'https://apirone.com/api/v1/receive';
 $_['test_url'] = 'https://apirone.com/api/v1/receive';
 $_['script'] = 'catalog/view/javascript/apirone/apirone.js';

@@ -1,9 +1,102 @@
 {% if error_message == false %}
+<form id="btca-form" onSubmit="return goBtcaPayment(event);" class="form form-horizontal">
+  <fieldset id="payment">
+    <legend>{{ payment_details }}</legend>
+    <div class="form-group">
+      <div class="col-sm-12">
+            {% for crypto in work_cryptos %}
+            <div class="radio">
+            <label id="{{crypto.name}}-label">
+              <input type="radio" value="{{crypto.name}}" name="currency" {% if crypto.checked %}checked="checked"{% endif %}>{{ pay }} <img width="17" src="catalog/view/theme/default/image/btca_{{crypto.name}}_logo.svg" alt="{{ crypto.fullname }}"> {{ crypto.fullname }}
+            </label>
+            </div>
+            {% endfor %}
+      </div>
+    </div>
+   </fieldset>
   <div class="buttons">
   <div class="pull-right">
-    <a class="btn btn-primary" href="{{ url_redirect }}">{{ button_confirm }} {{ and_pay }} {{ btc }} BTC</a>
+    <button type="submit" id="button-confirm" class="btn btn-primary">{{ button_confirm }} {{ and_pay }} {{ crypto }} {{ cryptocode }}</button>
+    <div style="display:none;" class="btca-address">{{ crypto_address }}</div>
   </div>
 </div>
+</form>
 {% else %}
     <div class="buttons"><div class="alert alert-danger" role="alert">{{ error_message }} </div></div>
 {% endif %}
+
+<script type="text/javascript"><!--
+
+$('#btca-form input[name="currency"]').on('change', function() {
+$.ajax({
+    url: 'index.php?route=extension/payment/apirone/send',
+    type: 'post',
+    data: $('#btca-form').serialize(),
+    dataType: 'json',
+    beforeSend: function() {
+      $('.btca_message').remove();
+      $('.text-danger').remove();
+      $('.btca-address').remove();
+      $('#payment').find('*').removeClass('has-error');
+      $('#payment').before('<div class="alert alert-info btca_wait"><i class="fa fa-info-circle"></i> {{ text_wait }} </div>');
+      $('#button-confirm, #quick-checkout-button-confirm').html('loading...');
+    },
+    complete: function() {
+      $('.btca_wait').remove();
+    },
+    success: function(json) {
+      if(json['error']){
+      $('.btca-address').remove();
+      $('#button-confirm, #quick-checkout-button-confirm').attr("disabled", true);
+      if (json['error']['warning']) {
+        $('#btca-form').before('<div class="alert alert-danger btca_message" style="display:none"><i class="fa fa-exclamation-circle"></i> ' + json['error']['warning'] + '<button type="button" class="close" data-dismiss="alert">&times;</button></div>');
+        $('.btca_message').fadeIn();
+      }
+      if (json['error']['btc']) {
+        $('#btc-label').after('<div class="text-danger">' + json['error']['warning'] + '</div>');
+        $('#btc-label').addClass('has-error');
+      }
+      if (json['error']['ltc']) {
+        $('#ltc-label').after('<div class="text-danger">' + json['error']['warning'] + '</div>');
+        $('#ltc-label').addClass('has-error');
+      }
+      if (json['error']['bch']) {
+        $('#bch-label').after('<div class="text-danger">' + json['error']['warning'] + '</div>');
+        $('#bch-label').addClass('has-error');
+      }
+      }
+      if (json['success']) {
+        $('#button-confirm, #quick-checkout-button-confirm').attr("disabled", false);
+        $('.btca_message').remove();
+        $('#button-confirm, #quick-checkout-button-confirm').after('<div style="display:none;" class="btca-address">' + json['address'] + '</div>');
+        $('#button-confirm, #quick-checkout-button-confirm').html('{{ button_confirm }} {{ and_pay }} '+ json['success'] + ' ' + json['crypto'].toUpperCase());
+      }
+    }
+  });  
+});
+
+$(document).delegate('#quick-checkout-button-confirm', 'click', function(e) {
+  goBtcaPayment();
+});
+
+$(function(){
+   function change_checkout_button_text(){
+      $('#quick-checkout-button-confirm').html('{{ button_confirm }} {{ and_pay }} {{ crypto }} {{ cryptocode }}');
+   };
+   window.setTimeout( change_checkout_button_text, 1000 );
+});
+
+
+function goBtcaPayment(e = null){
+    if(e !== null){
+      e.preventDefault();
+    }
+    var currency = $('#btca-form input[name="currency"]:checked').val();
+    var address = $('.btca-address').html();
+    if ( typeof address !== 'undefined' && typeof currency !== 'undefined')
+      location = '{{url_redirect}}&currency='+currency+'&address='+address+'&order={{order_id}}';
+    return false;
+} 
+//-->
+</script>
+

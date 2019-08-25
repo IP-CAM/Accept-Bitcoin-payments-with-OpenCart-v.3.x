@@ -1,5 +1,5 @@
 <?php
-$_['text_title'] = 'Оплатить Биткоинами <img src="catalog/view/theme/default/image/apirone_bitcoin_logo.svg" alt="Apirone Opencart Bitcoin plugin">';
+$_['text_title'] = 'Оплатить криптовалютой';
 $_['live_url'] = 'https://apirone.com/api/v1/receive';
 $_['test_url'] = 'https://apirone.com/api/v1/receive';
 $_['script'] = 'catalog/view/javascript/apirone/apirone.js';
@@ -30,3 +30,14 @@ $_['not_exchange'] = 'Apirone не может обменять';
 $_['to'] = 'на';
 $_['and_pay'] = 'и оплата';
 $_['with_uncomfirmed'] = 'с неподтвержденными';
+
+$_['pay'] = 'Оплатить с помощью';
+$_['bitcoin'] = 'Bitcoin';
+$_['litecoin'] = 'Litecoin';
+$_['bitcoin_cash'] = 'Bitcoin Cash';
+$_['payment_details'] = 'Подробности платежа';
+$_['text_wait'] = 'Ожидание...';
+$_['no_currencies'] = 'Нет доступных криптовалют для оплаты';
+$_['order_not_completed'] = "Платеж не получен. Заказ не завершен.";
+$_['minutes'] = 'минут(ы)';
+$_['seconds_remains'] =  'секунд(ы) для оплаты';

@@ -31,6 +31,7 @@ class ControllerExtensionPaymentApirone extends Controller {
 		$this->load->model('extension/payment/apirone');
 
 		$chkinputthash = $this->model_extension_payment_apirone->check_tx();
+		$chkTimerOn = $this->model_extension_payment_apirone->check_sale();
 		if (!array_key_exists('input_thash', $chkinputthash->row)){
 			if($chkinputthash->num_rows != 0){
 				$this->model_extension_payment_apirone->update_to_v2();
@@ -38,6 +39,15 @@ class ControllerExtensionPaymentApirone extends Controller {
         		$this->model_extension_payment_apirone->delete_tx_table();
         		$this->model_extension_payment_apirone->install_tx_table();
         	}
+		}
+		if (!array_key_exists('timer_on', $chkTimerOn->row)){
+			if($chkTimerOn->num_rows != 0){
+				$this->model_extension_payment_apirone->update_to_v3();
+        	} else{
+        		$this->model_extension_payment_apirone->delete_sales_table();
+        		$this->model_extension_payment_apirone->install_sales_table();
+        	}
+        	$this->model_extension_payment_apirone->install_rates_table();
 		}
 
 		$this->document->setTitle($this->language->get('heading_title'));
@@ -61,8 +71,13 @@ class ControllerExtensionPaymentApirone extends Controller {
 
 		$data['entry_merchant'] = $this->language->get('entry_merchant');
 
+		$data['entry_bch'] = $this->language->get('entry_bch');
+		$data['entry_ltc'] = $this->language->get('entry_ltc');
+		$data['entry_timeout'] = $this->language->get('entry_timeout');
+
 		$data['entry_order_status'] = $this->language->get('entry_order_status');
 		$data['entry_pending_status'] = $this->language->get('entry_pending_status');
+		$data['entry_voided_status'] = $this->language->get('entry_voided_status');
 
 		$data['entry_geo_zone'] = $this->language->get('entry_geo_zone');
 		$data['entry_status'] = $this->language->get('entry_status');
@@ -70,6 +85,7 @@ class ControllerExtensionPaymentApirone extends Controller {
 		$data['entry_merchantname'] = $this->language->get('entry_merchantname');
 		$data['entry_test_mode'] = $this->language->get('entry_test_mode');
 		$data['entry_confirmation'] = $this->language->get('entry_confirmation');
+		$data['entry_timeout'] = $this->language->get('entry_timeout');
 
 		$data['button_save'] = $this->language->get('button_save');
 		$data['button_cancel'] = $this->language->get('button_cancel');
@@ -86,6 +102,11 @@ class ControllerExtensionPaymentApirone extends Controller {
 			$data['error_merchant'] = '';
 		}
 
+		if (isset($this->error['timeout'])) {
+			$data['error_timeout'] = $this->error['timeout'];
+		} else {
+			$data['error_timeout'] = '';
+		}		
 
 		$data['breadcrumbs'] = array();
 
@@ -124,6 +145,23 @@ class ControllerExtensionPaymentApirone extends Controller {
 			$data['payment_apirone_merchant'] = $this->config->get('payment_apirone_merchant');
 		}
 
+		if (isset($this->request->post['payment_apirone_bch'])) {
+			$data['payment_apirone_bch'] = $this->request->post['payment_apirone_bch'];
+		} else {
+			$data['payment_apirone_bch'] = $this->config->get('payment_apirone_bch');
+		}
+
+		if (isset($this->request->post['payment_apirone_ltc'])) {
+			$data['payment_apirone_ltc'] = $this->request->post['payment_apirone_ltc'];
+		} else {
+			$data['payment_apirone_ltc'] = $this->config->get('payment_apirone_ltc');
+		}
+		if (isset($this->request->post['payment_apirone_timeout'])) {
+			$data['payment_apirone_timeout'] = $this->request->post['payment_apirone_timeout'];
+		} else {
+			$data['payment_apirone_timeout'] = $this->config->get('payment_apirone_timeout');
+		}
+
 		if (isset($this->request->post['payment_apirone_order_status_id'])) {
 			$data['payment_apirone_order_status_id'] = $this->request->post['payment_apirone_order_status_id'];
 		} else {
@@ -134,6 +172,12 @@ class ControllerExtensionPaymentApirone extends Controller {
 			$data['payment_apirone_pending_status_id'] = $this->request->post['payment_apirone_pending_status_id'];
 		} else {
 			$data['payment_apirone_pending_status_id'] = $this->config->get('payment_apirone_pending_status_id');
+		}
+
+		if (isset($this->request->post['payment_apirone_voided_status_id'])) {
+			$data['payment_apirone_voided_status_id'] = $this->request->post['payment_apirone_voided_status_id'];
+		} else {
+			$data['payment_apirone_voided_status_id'] = $this->config->get('payment_apirone_voided_status_id');
 		}
 
 		$this->load->model('localisation/order_status');
@@ -155,10 +199,15 @@ class ControllerExtensionPaymentApirone extends Controller {
 		} else {
 			$data['payment_apirone_test_mode'] = $this->config->get('payment_apirone_test_mode');
 		}
-		if (isset($this->request->post['payment_apirone_test_mode'])) {
+		if (isset($this->request->post['payment_apirone_confirmation'])) {
 			$data['payment_apirone_confirmation'] = $this->request->post['payment_apirone_confirmation'];
 		} else {
 			$data['payment_apirone_confirmation'] = $this->config->get('payment_apirone_confirmation');
+		}
+		if (isset($this->request->post['payment_apirone_timeout'])) {
+			$data['payment_apirone_timeout'] = $this->request->post['payment_apirone_timeout'];
+		} else {
+			$data['payment_apirone_timeout'] = $this->config->get('payment_apirone_timeout');
 		}
 
 		if (isset($this->request->post['payment_apirone_status'])) {
@@ -191,7 +240,13 @@ class ControllerExtensionPaymentApirone extends Controller {
 			$data['payment_apirone_sort_pending'] = $this->config->get('payment_apirone_sort_pending');
 		}
 
-		echo $this->config->get('payment_apirone_sort_pending');
+		if (isset($this->request->post['payment_apirone_sort_voided'])) {
+			$data['payment_apirone_sort_voided'] = $this->request->post['payment_apirone_sort_voided'];
+		} else {
+			$data['payment_apirone_sort_voided'] = $this->config->get('payment_apirone_sort_voided');
+		}
+
+		//echo $this->config->get('payment_apirone_sort_pending');
 		
 		$data['header'] = $this->load->controller('common/header');
 		$data['column_left'] = $this->load->controller('common/column_left');
@@ -205,7 +260,11 @@ class ControllerExtensionPaymentApirone extends Controller {
 			$this->error['warning'] = $this->language->get('error_permission');
 		}
 
-		if (!$this->request->post['payment_apirone_merchant']) {
+		if (!$this->request->post['payment_apirone_timeout']) {
+			$this->error['timeout'] = $this->language->get('error_timeout');
+		} 		
+
+		if (!$this->request->post['payment_apirone_merchant'] && !$this->request->post['payment_apirone_bch'] && !$this->request->post['payment_apirone_ltc']) {
 			$this->error['merchant'] = $this->language->get('error_merchant');
 		} else{
         	$this->clear_cache();
@@ -217,10 +276,11 @@ class ControllerExtensionPaymentApirone extends Controller {
 	public function install() {
 		$this->load->model('extension/payment/apirone');
 		$this->load->model('setting/setting');
-		$data = array('payment_apirone_test_mode' => '0', 'payment_apirone_pending_status_id' => '1', 'payment_apirone_order_status_id' => '5');
+		$data = array('payment_apirone_test_mode' => '0', 'payment_apirone_pending_status_id' => '1', 'payment_apirone_order_status_id' => '5', 'payment_apirone_timeout' => '1800', 'payment_apirone_voided_status_id' => '16', 'payment_apirone_sort_order' => '0');
 		$this->model_setting_setting->editSetting('payment_apirone', $data);		
 		$this->model_extension_payment_apirone->install_tx_table();
 		$this->model_extension_payment_apirone->install_sales_table();
+		$this->model_extension_payment_apirone->install_rates_table();
 	}
 
 	public function uninstall() {
@@ -230,5 +290,6 @@ class ControllerExtensionPaymentApirone extends Controller {
 		$this->model_setting_setting->editSetting('payment_apirone', $data);	
 		$this->model_extension_payment_apirone->delete_tx_table();
 		$this->model_extension_payment_apirone->delete_sales_table();
+		$this->model_extension_payment_apirone->delete_rates_table();
 	}
 }

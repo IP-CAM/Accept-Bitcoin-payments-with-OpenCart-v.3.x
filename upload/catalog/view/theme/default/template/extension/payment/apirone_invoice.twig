@@ -1,34 +1,46 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Pay with Bitcoin</title>
+    <title>Pay with Cryptocurrency</title>
     <link rel="stylesheet" type="text/css" href="{{ style }}">
     <script src="catalog/view/javascript/apirone/jquery-2.1.1.min.js" type="text/javascript"></script>
 <script type="text/javascript">
+    function change_location(){
+      location = '/';
+    };
+    function display_success(){
+        $(".wait").css('display', 'none');
+        $(".btca-success").css('display', 'flex');
+    };
+    var progressTimer;
     if (window.jQuery) {
-    apirone_query();
-    function apirone_query(){
-    jQuery(".abf-refresh").addClass('rotating');
+    btca_query();
+    function btca_query(){
+    jQuery(".btca-refresh").addClass('rotating');
     var key = '{{ key }}';
     var order = {{ order }};
+    var currency = '{{ crypto }}';
     if (key != undefined && order != undefined) {
-    abf_get_query='/index.php?route=extension/payment/apirone/check_payment&key='+key+'&order='+order;
+    btca_get_query='/index.php?route=extension/payment/apirone/check_payment&key='+key+'&currency='+currency+'&order='+order;
     jQuery.ajax({
-    url: abf_get_query,
+    url: btca_get_query,
     dataType : "text",
     success: function (data, textStatus) {
        data = JSON.parse(data);
        console.log(data);
         if (data.status == "complete") {
-            complete = 1; 
+            complete = 1;
+            clearTimeout(progressTimer); 
             jQuery(".with-uncomfirmed, .uncomfirmed").empty();
             statusText = "{{ payment_complete }}";
+            window.setTimeout( display_success, 3000 );
+            window.setTimeout( change_location, 10000 );
         }
         if (data.status == "innetwork") {
             innetwork = 1;
             complete = 0;
             jQuery(".with-uncomfirmed").text("(with uncomfirmed)");
-            statusText = "{{ tx_in_network }}: "+ data.innetwork_amount +" BTC)";
+            statusText = "{{ tx_in_network }}: "+ data.innetwork_amount +" {{ crypto }})";
         }
         if (data.status == "waiting") {
             complete = 0;
@@ -36,43 +48,43 @@
             statusText = "{{ waiting_payment }}";
         }
 
-        jQuery(".abf-tx").empty();
+        jQuery(".btca-tx").empty();
         if(!data.transactions) {
-            jQuery(".abf-tx").prepend('{{ no_tx_yet }}');
+            jQuery(".btca-tx").prepend('{{ no_tx_yet }}');
         } else{
             data.transactions.forEach(showTransactions);
         }
 
-        input_address = jQuery('.abf-input-address').html(); 
-        encoded_msg = encodeURIComponent("bitcoin:" + input_address + "?amount=" + data.remains_to_pay + "&label=Apirone");
-        src = 'https://apirone.com/api/v1/qr?message=' + encoded_msg;
-        jQuery('.abf-img-height').hide();
-        jQuery('.abf-img-height').attr('src', src);
-        jQuery('.abf-img-height').show();
+        input_address = jQuery('.btca-input-address').html(); 
+        encoded_msg = encodeURIComponent("bitcoin:" + input_address + "?amount=" + data.remains_to_pay + "&label={{ crypto }}");
+        src = 'https://chart.googleapis.com/chart?chs=225x225&cht=qr&chl=' + encoded_msg;
+        jQuery('.btca-img-height').hide();
+        jQuery('.btca-img-height').attr('src', src);
+        jQuery('.btca-img-height').show();
 
         function showTransactions(value, index, ar) {
             if(value.confirmations >= data.count_confirmations) {
-                color='abf-green';
+                color='btca-green';
             } else if(value.confirmations > 0 && value.confirmations < data.count_confirmations) {
-                color='abf-yellow';
+                color='btca-yellow';
             } else{
-                color='abf-red';
+                color='btca-red';
             };
-            tx = '<div><a href="https://apirone.com/btc/tx/' + value.input_thash + '" target="_blank">'+ value.input_thash.substr(0,8)+ '...' + value.input_thash.substr(-8) + '</a><div class="abf-confirmations ' + color + '" title="{{ confirmations_count }}">' + value.confirmations + '</div></div>';
-            jQuery(".abf-tx").prepend(tx);
+            tx = '<div><a href="https://btc.com/' + value.input_thash + '" target="_blank">'+ value.input_thash.substr(0,8)+ '...' + value.input_thash.substr(-8) + '</a><div class="btca-confirmations ' + color + '" title="{{ confirmations_count }}">' + value.confirmations + '</div></div>';
+            jQuery(".btca-tx").prepend(tx);
         }
-        jQuery( ".abf-totalbtc" ).text(data.total_btc);
-        jQuery( ".abf-arrived" ).text(data.arrived_amount);
+        jQuery( ".btca-totalbtc" ).text(data.total_crypto);
+        jQuery( ".btca-arrived" ).text(data.arrived_amount);
 
         remains = parseFloat(data.remains_to_pay);
         remains = remains.toFixed(8);
         if( remains < 0 ) remains = 0;
-        jQuery( ".abf-remains" ).text(remains);
-        jQuery( ".abf-status" ).text(statusText);
-        complete_block = '<div class="abf-complete"><p>{{ thank_you }}</p></div>';
+        jQuery( ".btca-remains" ).text(remains);
+        jQuery( ".btca-status" ).text(statusText);
+        complete_block = '<div class="btca-complete"><p>{{ thank_you }}</p></div>';
  
-        if (!jQuery("div").is(".abf-complete") && complete){ jQuery( ".abf-data" ).after(complete_block); }
-        jQuery(".abf-refresh").removeClass('rotating');
+        if (!jQuery("div").is(".btca-complete") && complete){ jQuery( ".btca-data" ).after(complete_block); }
+        jQuery(".btca-refresh").removeClass('rotating');
         
     } ,
     error: function(xhr, ajaxOptions, thrownError){
@@ -81,76 +93,139 @@
     });
     }
     }
-    setInterval(apirone_query, 7000);
+    setInterval(btca_query, 7000);
     jQuery( document ).ready(function() {
-    jQuery(".abf-refresh").click(function(event) {
-        jQuery(".abf-refresh").addClass('rotating');
-        apirone_query();
+    jQuery(".btca-refresh").click(function(event) {
+        jQuery(".btca-refresh").addClass('rotating');
+        btca_query();
     });
 });
+
+function updateProgress(percentage, timeDiff) {
+    $('#pbar_innerdiv').css("width", percentage + "%");
+    $('#pbar_innertext').text(toHHMMSS(timeDiff));
+}
+
+function toHHMMSS(time) {
+    var sec_num = Math.floor(time/1E3); // don't forget the second param
+    var minutes = Math.floor(sec_num / 60);
+    var seconds = sec_num - (minutes * 60);
+    if (minutes < 10) {minutes = "0"+minutes;}
+    if (seconds < 10) {seconds = "0"+seconds;}
+    //console.log(minutes+':'+seconds);
+    return minutes+' {{minutes}} '+seconds +' {{seconds_remains}}';
+}
+
+function timeoutWindow() {
+    $(".wait").css('display', 'none');
+    $(".time").css('display', 'block');
+}
+
+function animateUpdate() {
+    var now = new Date();
+    var timeDiff = finish.getTime() - now.getTime();
+    var perc = Math.round((timeDiff/maxTime)*100);
+    if (perc > 0) {
+       updateProgress(perc, timeDiff);
+       progressTimer = setTimeout(animateUpdate, timeoutVal);
+    } else {
+        timeoutWindow();
+    }
+}
+            var delta = {{ deltatime }};
+            var finish = new Date();
+            finish.setSeconds(finish.getSeconds() + delta);
+            var maxTime = delta*1000;
+            var timeoutVal = Math.floor(10);
+            if (delta < 0) {
+                setTimeout(timeoutWindow, 10);
+            } else {
+                animateUpdate();
+            }
 }
 </script>
 </head>
 <body>
-<div class="abf-frame">
-        <div class="abf-header">
+<div class="btca-frame btca-success">
+<svg width="50px" height="50px" viewBox="-5 -5 93 93" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <circle id="oval" stroke="#43ac6a" stroke-width="9" fill="transparent" cx="41.5" cy="41.5" r="41.5"></circle>
+        <polygon id="tick" fill="#43ac6a" points="66 29.01 35.03 59.97 16 40.94 22.92 34.02 35.03 46.13 59.08 22.09"></polygon>
+    </g>
+</svg>
+</div>
+<div class="btca-frame wait">
+        <div class="btca-header">
             <div>
-                <div class="abf-ash1"><img src="/catalog/view/theme/default/image/apirone_bitcoin_logo.svg" alt=""></div>
+                <div class="btca-ash1"><img src="/catalog/view/theme/default/image/btca_{{ fullCurrencyName }}_logo.svg" alt="{{ fullCurrencyName }} logo" height="32"></div>
             </div>
-            <div style="text-align: center; background-color:#fff;"><span class="abf-qr">
-               <img class="abf-img-height" src="https://apirone.com/api/v1/qr?message={{ message }}">
+            <div style="text-align: center; background-color:#fff;"><span class="btca-qr">
+               <img class="btca-img-height" src="https://chart.googleapis.com/chart?chs=225x225&cht=qr&chl={{ message }}">
                </span>
             </div> 
         </div>
-        <div class="abf-form">
-            <div class="abf-ash1">
-                {{ please_send }} <strong><span class="abf-totalbtc">{{ response_btc }}</span></strong> BTC
+        <div class="btca-form">
+            <div class="btca-ash1">
+                {{ please_send }} <strong><span class="btca-totalbtc">{{ response_btc }}</span></strong> {{ crypto }}
                 {{ to_address }}:
             </div>
-            <div class="abf-address abf-topline abf-ash2 abf-input-address">{{ input_address }}</div>
-            <div class="abf-data abf-topline">
-                <div class="abf-list">
-                    <div class="abf-list-item">
-                        <div class="abf-label">{{ merchant }}:</div>
-                        <div class="abf-value">{{ merchantname }}</div>
+            <div class="btca-address btca-topline btca-ash2 btca-input-address">{{ input_address }}</div>
+            <div class="btca-data btca-topline">
+                <div id="pbar_outerdiv" style="width: 292px; height: 15px; border: 1px solid #6A8FC2; z-index: 1; position: relative;">
+                    <div id="pbar_innerdiv" style="background-color: #6A8FC2; z-index: 2; height: 100%; width: 0%;"></div>
+                    <div id="pbar_innertext" style="z-index: 3; position: absolute; top: 0; left: 0; width: 100%; height: 100%; color: #bdd5f5; font-weight: bold; text-align: center;">wait...</div>
+                </div>
+                <div class="btca-list">
+                    <div class="btca-list-item">
+                        <div class="btca-label">{{ merchant }}:</div>
+                        <div class="btca-value">{{ merchantname }}</div>
                     </div>
-                    <div class="abf-list-item">
-                        <div class="abf-label">{{ amount_to_pay }}:</div>
-                        <div class="abf-value"><span class="abf-totalbtc">{{ response_btc }}</span> BTC</div>
+                    <div class="btca-list-item">
+                        <div class="btca-label">{{ amount_to_pay }}:</div>
+                        <div class="btca-value"><span class="btca-totalbtc">{{ response_btc }}</span> {{ crypto }}</div>
                     </div>
-                    <div class="abf-list-item">
-                        <div class="abf-label">{{ arrived_amount }}:</div>
-                        <div class="abf-value"><span class="abf-arrived">0.00000000</span> BTC</div>
+                    <div class="btca-list-item">
+                        <div class="btca-label">{{ arrived_amount }}:</div>
+                        <div class="btca-value"><span class="btca-arrived">0.00000000</span> {{ crypto }}</div>
                     </div>
-                    <div class="abf-list-item">
-                        <div class="abf-label">{{ remains_to_pay }}:</div>
-                        <div class="abf-value"><b><span class="abf-remains">{{ response_btc }}</span> BTC</b></div>
+                    <div class="btca-list-item">
+                        <div class="btca-label">{{ remains_to_pay }}:</div>
+                        <div class="btca-value"><b><span class="btca-remains">{{ response_btc }}</span> {{ crypto }}</b></div>
                     </div>                                                           
-                    <div class="abf-list-item">
-                        <div class="abf-label">{{ date }}:</div>
-                        <div class="abf-value">{{ current_date }}</div>
+                    <div class="btca-list-item">
+                        <div class="btca-label">{{ date }}:</div>
+                        <div class="btca-value">{{ current_date }}</div>
                     </div>
-                    <div class="abf-list-item abf-tx-block">
-                        <div class="abf-label">{{ transactions }}:</div>
-                        <div class="abf-value abf-tx">
+                    <div class="btca-list-item btca-tx-block">
+                        <div class="btca-label">{{ transactions }}:</div>
+                        <div class="btca-value btca-tx">
                             {{ no_tx_yet }}
                         </div>
                     </div>
-                    <div class="abf-list-item">
-                        <div class="abf-label">{{ status }}:</div>
-                        <div class="abf-value"><b><span class="abf-status">{{ loading_data }}</span></b><div class="abf-refresh"></div></div>
+                    <div class="btca-list-item">
+                        <div class="btca-label">{{ status }}:</div>
+                        <div class="btca-value"><b><span class="btca-status">{{ loading_data }}</span></b><div class="btca-refresh"></div></div>
                     </div>
                 </div>
             </div>
-            <div class="abf-info">
+            <div class="btca-info">
                 <p>{{ if_you_unable_complete }}<br>{{ you_can_pay_partially }}
                 </p>
-                <p class="abf-left"><a href="{{back_to_cart}}">{{ go_to_cart }}</a></p>
-                <p class="abf-right"><a href="https://apirone.com/" target="_blank"><img src="/catalog/view/theme/default/image/apirone_logo.svg"  alt=""></a></p>
-                <div class="abf-clear"></div>
+                <p class="btca-left"><a href="{{back_to_cart}}">{{ go_to_cart }}</a></p>
+                <div class="btca-clear"></div>
             </div>
         </div>
     </div>
-    <div class="abf-clear"></div>
+        <div class="btca-frame time">
+        <div class="btca-form">
+            <div class="btca-failed">
+                <p>{{order_not_completed}}</p>
+            </div>
+            <div class="btca-list-item">
+                <p class="btca-left"><a href="{{back_to_cart}}">{{ go_to_cart }}</a></p>
+            </div>
+        </div>
+    </div>
+    <div class="btca-clear"></div>
 </body>
 </html>

@@ -20,7 +20,9 @@ class ModelExtensionPaymentApirone extends Model {
 		$available_cryptos = array('btc', 'bch', 'ltc');
         foreach ($available_cryptos as $currency) {
             if( $this->abf_getCryptoAddress($currency) != '' ) {
-                $work_cryptos = $work_cryptos.' <img src="'.$_SERVER['REQUEST_SCHEME']."://".$_SERVER['SERVER_NAME'].'/catalog/view/theme/default/image/btca_'.$currency.'_logo.svg" alt="" width="16" style="margin-top:-3px;">';
+            	$image_link = 'catalog/view/theme/default/image/btca_'.$currency.'_logo.svg';
+				$work_cryptos = $work_cryptos.' <img src="'.$image_link.'" alt="" width="16" style="margin-top:-3px;">';
+                //$work_cryptos = $work_cryptos.' <img src="'.$_SERVER['REQUEST_SCHEME']."://".$_SERVER['SERVER_NAME'].'/catalog/view/theme/default/image/btca_'.$currency.'_logo.svg" alt="" width="16" style="margin-top:-3px;">';
             }            
         }
 

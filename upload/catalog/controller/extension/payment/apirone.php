@@ -289,6 +289,7 @@ class ControllerExtensionPaymentApirone extends Controller {
         if($input_address == $response_create['input_address']){
             $data['script'] = $this->language->get('script');
             $data['style'] =  $this->language->get('style');
+            $this->cart->clear();
             $this->response->setOutput($this->load->view('extension/payment/apirone_invoice', $data));
             return;
         } else {
@@ -573,13 +574,13 @@ private function abf_check_data($apirone_order){
     }  
     return $abf_check_code;
 }
-private function abf_transaction_exists($thash, $order_id, $crypto){
+private function abf_transaction_exists($thash, $input_thash, $order_id, $crypto){
     $this->load->model('extension/payment/apirone');
     $transactions = $this->model_extension_payment_apirone->abf_getTransactions($order_id, $crypto);
     $flag = false;
     if($transactions != '')
         foreach ($transactions as $transaction) {
-        if($thash == $transaction['thash']){
+        if(($thash == $transaction['thash']) && ($input_thash == $transaction['input_thash'])){
             $flag = true; // same transaction was in DB
             break;
         }
@@ -754,7 +755,7 @@ private function abf_filled_transaction_hash($apirone_order){
     $this->load->model('extension/payment/apirone');
     $this->load->model('checkout/order');
     $order = $this->model_checkout_order->getOrder($apirone_order['orderId']);
-        if($this->abf_transaction_exists($apirone_order['transaction_hash'],$apirone_order['orderId'],$apirone_order['currency'])){
+        if($this->abf_transaction_exists($apirone_order['transaction_hash'],$apirone_order['input_transaction_hash'],$apirone_order['orderId'],$apirone_order['currency'])){
             //$abf_check_code = 600; update transaction
             $abf_check_code = '*ok*';// answer ok because we have tx in DB
             $this->model_extension_payment_apirone->abf_updateTransaction(
@@ -1023,7 +1024,7 @@ private function abf_filled_transaction_hash($apirone_order){
 
             $partiallypaid_order_status = $this->config->get('payment_apirone_pending_status_id');
             if($order['order_status_id'] == $partiallypaid_order_status) {
-                if($innetwotk_pay + $payamount >= $response_btc) {
+                if($innetwotk_pay + $payamount >= $response_btc*1E8) {
                     $status = 'complete';
                 }
             }

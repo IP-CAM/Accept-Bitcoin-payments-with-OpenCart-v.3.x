@@ -27,7 +27,6 @@
     dataType : "text",
     success: function (data, textStatus) {
        data = JSON.parse(data);
-       console.log(data);
         if (data.status == "complete") {
             complete = 1;
             clearTimeout(progressTimer); 
@@ -54,15 +53,17 @@
         } else{
             data.transactions.forEach(showTransactions);
         }
-
+        fullCurrencyName = "{{ fullCurrencyName }}";
+        crypto = "{{ crypto }}";
         input_address = jQuery('.btca-input-address').html(); 
-        encoded_msg = encodeURIComponent("bitcoin:" + input_address + "?amount=" + data.remains_to_pay + "&label={{ crypto }}");
+        encoded_msg = encodeURIComponent(fullCurrencyName + ":" + input_address + "?amount=" + data.remains_to_pay + "&label="+ crypto);
         src = 'https://chart.googleapis.com/chart?chs=225x225&cht=qr&chl=' + encoded_msg;
         jQuery('.btca-img-height').hide();
         jQuery('.btca-img-height').attr('src', src);
         jQuery('.btca-img-height').show();
 
         function showTransactions(value, index, ar) {
+            currency = "{{ crypto }}";
             if(value.confirmations >= data.count_confirmations) {
                 color='btca-green';
             } else if(value.confirmations > 0 && value.confirmations < data.count_confirmations) {
@@ -70,7 +71,14 @@
             } else{
                 color='btca-red';
             };
-            tx = '<div><a href="https://btc.com/' + value.input_thash + '" target="_blank">'+ value.input_thash.substr(0,8)+ '...' + value.input_thash.substr(-8) + '</a><div class="btca-confirmations ' + color + '" title="{{ confirmations_count }}">' + value.confirmations + '</div></div>';
+
+            var explorer_url = "https://btc.com/";
+            console.log(currency);
+            if( currency === "LTC" ) {
+                explorer_url = "https://blockchair.com/litecoin/transaction/";
+            }
+
+            tx = '<div><a href="' + explorer_url + value.input_thash + '" target="_blank">'+ value.input_thash.substr(0,8)+ '...' + value.input_thash.substr(-8) + '</a><div class="btca-confirmations ' + color + '" title="{{ confirmations_count }}">' + value.confirmations + '</div></div>';
             jQuery(".btca-tx").prepend(tx);
         }
         jQuery( ".btca-totalbtc" ).text(data.total_crypto);

@@ -1,4 +1,4 @@
-# OpenCart 3.x versions
+# Accept-Bitcoin-Payments-with-Opencart-v.3.x
 
 ## Installation
 
